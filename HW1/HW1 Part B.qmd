@@ -1,0 +1,90 @@
+---
+title: "HW1"
+format: 
+  pdf:
+    toc: false
+execute: 
+  warning: false
+  echo: false
+  message: false
+---
+
+```{r}
+library(tidyverse)
+```
+
+# Problem B 
+
+## Step 1: uniform random numbers simulation 
+
+We draw 10,000 random numbers form a $U(0,1)$ distribution
+
+```{r}
+set.seed(123)
+          ############# A ###############
+n_simulations <- 10000
+uniform_numbers <- runif(n = n_simulations, min = 0, max = 1)
+
+```
+
+Let $X = 1$ if the coin comes up Heads, and $X = 0$ if the coin comes up Tails. Let $U$ be a uniform $U(0,1)$ variable. 
+
+We know that $P(X = 1)$ = $P(X = 0)$ = 0.5. 
+
+Therefore, 
+
+\begin{equation}
+\bold{X} = 
+\begin{cases}
+    x_0 = 0 ,\ U \leq P(X = 0)\\
+    x_1 = 1 ,\ P(X = 0) < U \leq P(X = 0) + P(X = 1)
+\end{cases}
+\end{equation}
+
+The first 30 uniform random numbers are: 
+```{r}
+head(uniform_numbers, 30)
+```
+
+```{r}
+p <- 0.5
+
+# Simulate the coin toss using the Bernoulli distribution
+coin_toss <- ifelse(uniform_numbers <= p, 0, 1)
+
+```
+
+Applying a rule from equation (1) produces coin tosses, the first 30 tosses are: 
+
+```{r}
+head(coin_toss, 30)
+```
+
+Final proportion of Tails is `r round(mean(coin_toss), 2)`
+
+Running proportion of Tails is shown on @fig-long-run
+
+```{r}
+#| label: fig-long-run
+#| fig-cap: "Long running proportions of Tails" 
+
+toss = seq(from = 1, to = length(coin_toss), by = 1)
+           
+ggplot(
+  data = data.frame(
+    toss = toss, 
+    runprop = cumsum(coin_toss)/toss
+  ), 
+   aes(
+    x = toss, 
+    y = runprop
+      )
+) + geom_line() + 
+  theme_minimal() + 
+  ylab("Proportion of Tails") + 
+  xlab("Number of Coin Tosses")
+
+```
+
+@fig-long-run shows that after about 1,250 coin tosses the proportion of heads and tails converges to around 0.5
+
