@@ -5,7 +5,7 @@ format:
     toc: false
 execute: 
   warning: false
-  echo: false
+  echo: true
   message: false
 ---
 
@@ -15,7 +15,7 @@ library(tidyverse)
 
 ```{r some problems from part A} 
 #| eval: false 
-
+#| echo: false
 set.seed(123)
           ############# A ###############
 n_simulations <- 10000
@@ -128,7 +128,6 @@ We draw 10,000 random numbers form a $U(0,1)$ distribution
 
 ```{r}
 set.seed(123)
-          ############# A ###############
 n_simulations <- 10000
 uniform_numbers <- runif(n = n_simulations, min = 0, max = 1)
 

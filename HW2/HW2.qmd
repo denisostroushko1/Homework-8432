@@ -1,0 +1,212 @@
+---
+title: "HW2"
+format: 
+  pdf:
+    toc: false
+execute: 
+  warning: false
+  echo: true
+  message: false
+---
+
+```{r}
+library(tidyverse)
+```
+
+# Preliminary
+
+Transition matrix is given: 
+
+```{r}
+#| echo: false
+
+
+
+P = matrix(
+  rbind(
+    c(0.7, 0, 0.3, 0) %>% t(),
+    c(0.5, 0, 0.5, 0) %>% t(),
+    c(0, 0.4, 0, 0.6) %>% t(),
+    c(0, 0.2, 0, 0.8) %>% t()
+  ), 
+  nrow = 4
+) 
+
+print(P )
+```
+
+```{r}
+#| echo: false 
+#| # Find eigenvalues and eigenvectors
+eigen_data <- eigen(t(P))
+
+# Extract the eigenvector corresponding to eigenvalue 1
+eigen_vector <- eigen_data$vectors[, which.max(eigen_data$values == 1)]
+
+# Normalize the eigenvector to obtain limiting probabilities
+limiting_probabilities <- eigen_vector / sum(eigen_vector)
+
+# limiting_probabilities
+```
+
+To find log run proportions for states 1, 2, 3, 4, we need to solve a system of these equations: 
+
+\begin{align*}
+\pi_1 &= 0.7 * \pi_1  + 0.5 * \pi_2 \\
+\pi_2 &= 0.4 * \pi_3  + 0.2 * \pi_4 \\
+\pi_3 &= 0.3 * \pi_1  + 0.5 * \pi_2 \\
+\pi_4 &= 0.6 * \pi_3  + 0.8 * \pi_4 \\
+1 &= \pi_1 + \pi_2 + \pi_3 + \pi_4 
+\end{align*}
+
+From the above equations, we obtain the following relations: 
+
+\begin{align*}
+\pi_1 &= \frac{0.5}{0.3} * \pi_2 \\
+\pi_3 &= \pi_2 \\ 
+\pi_4 &= 3 * \pi_3 \\ 
+1 &= \pi_1 + \frac{.3}{.5} * \pi_1 + \frac{.3}{.5} * \pi_1 + 2 * \pi_1
+\end{align*}
+
+We obtain $\pi_1 = 0.25$, which leads us to the following solution for the stationary probabilities: 
+
+$$\large \pi_1 = 0.25, \pi_2 = 0.15, \pi_3 = 0.15, \pi_4 = 0.45$$
+
+# Simulation 
+
+## A 
+
+First 40 random uniform numbers
+
+```{R}
+set.seed(7782)
+random_numbers = runif(n = 50000, min = 0, max = 1)
+head(random_numbers, 40)
+```
+
+## B 
+
+Suppose we assign an intiial state according to the rules given below: 
+```{r}
+State = case_when(random_numbers <= 0.25 ~ 1,
+                 random_numbers >= 0.25 & random_numbers <= .5 ~ 2,
+                 random_numbers >= .5 & random_numbers <= .75 ~ 3,
+                 random_numbers >= .75  ~ 4
+                 )
+
+State_0 = State[1]
+
+```
+
+Then, the first state is `r State_0`. Thus, we will select the next state with probabilities `r paste0(P[State_0,], collapse = ", ")` corresponding to states 1, 2, 3, 4
+
+Using code below, we select the next state according to transition probabilities
+
+```{r}
+set.seed(1728)
+sample(c(1,2,3,4), size = 1, prob = P[State_0,]) -> selected_state
+
+```
+
+Next selected state, $X_1$ = `r selected_state`
+
+## C 
+
+Now we replicate the whole process using a loop. This code chunk follows the procedure that was given to us. At each step, 
+we select $X_n$ as defined by the 50,000 uniform random numbers, and pick the state $X_{n + 1}$ using transtion probabilities 
+from the matrix. At the next step we select a new state for $X_{n + 1}$, which might not agree with what was sampled 
+during the transition from $X_n$ to $X_{n+1}$. 
+
+```{r}
+#| eval: false 
+res = data.frame(step = seq(from = 1, to = 50000, by = 1), 
+                 state = NA)
+
+# We have transition matrix P 
+
+set.seed(78916)
+
+for(i in 1:nrow(res)){
+  
+  if(i %% 100 == 0){print(i)}
+    
+  current_state = State[i]
+  next_state = sample(c(1,2,3,4), size = 1, prob = P[current_state,])
+  
+  res$step[i] = i 
+  res$state[i] = next_state
+  
+}
+
+write.csv(res, "res1.csv")
+```
+
+For comparison, I generated a Markov Chain Process that would use a state selected in a transiton from $X_n$ to $X_{n+1}$ for a 
+stansition from $X_{n+1}$ to $X_{n+2}$. I selected an intiial state from the fist randomly generated uniqform number. Code 
+for this procedure is also given below: 
+
+```{r}
+#| eval: false 
+res = data.frame(step = seq(from = 1, to = 50000, by = 1), 
+                 state = NA)
+
+# We have transition matrix P 
+
+set.seed(78916)
+next_state = State[1]
+
+for(i in 1:nrow(res)){
+  
+  if(i %% 100 == 0){print(i)}
+    
+  next_state = sample(c(1,2,3,4), size = 1, prob = P[next_state,])
+  
+  res$step[i] = i 
+  res$state[i] = next_state
+  
+}
+
+write.csv(res, "res2.csv")
+```
+
+## D 
+
+```{r}
+#| echo: false
+desired = read_csv("res1.csv")
+correct = read_csv("res2.csv")
+```
+
+Using simulated random values, we can show that he long term proportions from the process described in (C) produces the following 
+data structure: 
+```{r}
+head(desired)[,-1]
+```
+
+Long running proportions of state are given below: 
+```{r}
+table(desired$state)/nrow(desired)
+```
+
+The difference between long run proportions and hand-solution is given below: 
+```{r}
+table(desired$state)/nrow(desired) - c(0.25, 0.15, 0.15, 0.45)
+```
+
+These proportions disagree with the solution we calculated by hand, which makes sense, because at each step we modified 
+the process and use auxiliary information to make transitions between states. 
+
+For comparison, I also calculated long run proportions from process that relied solely on the initial state from the 
+uniform random numebrs, but used transition states and transition probabilities to make the decision on the next state. 
+
+Results are given below: 
+
+```{r}
+table(correct$state)/nrow(correct)
+table(correct$state)/nrow(correct) - c(0.25, 0.15, 0.15, 0.45)
+```
+
+We are now within a Monte Carlo error away from the true long running proportions. 
+
+## E 
+
