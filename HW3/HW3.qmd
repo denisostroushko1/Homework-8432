@@ -71,27 +71,31 @@ forward_HMM_k <- function(
   first_signal = EMITTED_SIGNALS[1] # first signal 
   STARTING_P * EMISSION_M[rownames(EMISSION_M) == first_signal] -> working_F
   
-  ## future states 2, 3, etc... 
-  for( STEPS in 2:DESIRED_K){
-    
-    current_F = rep(NA, length(STARTING_P))
-    
-    for( STATES in 1:length(STARTING_P)){
+  if(DESIRED_K > 1){
+    ## future states 2, 3, etc... 
+    for( STEPS in 2:DESIRED_K){
       
-      current_F[STATES] <- 
-        EMISSION_M[
-          ## get conditional probs given potential HMM state 
-          rownames(EMISSION_M) ==  
-            ## get probability for the Hidden state we work with here 
-                     EMITTED_SIGNALS[STEPS]][STATES]  * 
-                                                        
-         ## multiply previous Forward F's  with transition probabilities 
-        sum(working_F * TRANSITION_M[,STATES] )
+      current_F = rep(NA, length(STARTING_P))
       
+      for( STATES in 1:length(STARTING_P)){
+        
+        current_F[STATES] <- 
+          EMISSION_M[
+            ## get conditional probs given potential HMM state 
+            rownames(EMISSION_M) ==  
+              ## get probability for the Hidden state we work with here 
+                       EMITTED_SIGNALS[STEPS]][STATES]  * 
+                                                          
+           ## multiply previous Forward F's  with transition probabilities 
+          sum(working_F * TRANSITION_M[,STATES] )
+        
+      }
+      
+      working_F = current_F
     }
-    
-    working_F = current_F
-  }
+  }else{
+      current_F = working_F
+    }
   
   return(current_F)
 }
@@ -385,6 +389,34 @@ print(recovered_states_results)
 # Just Final Answers
 
 **$F_n(j)$ from forward equations: **
+
+* $F_1(j):$
+
+```{r}
+#| echo: false 
+forward_HMM_k(
+  TRANSITION_M = transition_m, 
+  EMISSION_M = emission_m, 
+  EMITTED_SIGNALS = c("a", "u", "a"), 
+  STARTING_P = c(0.8, 0.2),
+  DESIRED_K = 1
+) %>% round(., 6)
+```
+
+* $F_2(j):$
+
+```{r}
+#| echo: false 
+forward_HMM_k(
+  TRANSITION_M = transition_m, 
+  EMISSION_M = emission_m, 
+  EMITTED_SIGNALS = c("a", "u", "a"), 
+  STARTING_P = c(0.8, 0.2),
+  DESIRED_K = 2
+) %>% round(., 6)
+```
+
+* $F_3(j):$
 
 ```{r}
 #| echo: false 
