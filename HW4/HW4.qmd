@@ -1,0 +1,235 @@
+---
+title: "HW4"
+format: 
+  pdf:
+    toc: false
+execute: 
+  warning: false
+  echo: false
+  message: false
+---
+
+```{r}
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+```
+
+# A 
+
+Exponential with $\lambda = 5$ implies that mean is $\frac{1}{5}$. 
+
+If $1 - U$ ~ $Unif(0,1)$, then $- log U$ ~ $Exp(1)$. 
+
+We want $Exp(5)$ with mean $\frac{1}{5}$, thefore we will work with $- \frac{1}{5} log U$
+
+```{r exponential rv from uniform rv }
+
+generate_exponentials <- function(unif, n, rate) {
+  
+  t <- -log(unif) / rate  # Transform to exponential distribution
+  return(t)
+}
+
+```
+
+I am using a `while` loop to produce observation of 'inter arrival' times until they reach a total of 12. 
+Results are presented below: 
+
+```{r}
+
+set.seed(798172)
+
+lambda <- 5
+time_sum <- 0
+n <- 0
+T_run = 0
+
+res <- data.frame(I. = integer(), 
+                  U. = numeric(), 
+                  T. = numeric(), 
+                  S. = numeric()
+                  )
+
+# Print the 10 first uniform numbers and corresponding exponentials
+while (time_sum <= 12) {
+  unif = runif(1)
+  Ti <- generate_exponentials(unif = unif,1, lambda)
+  time_sum <- time_sum + Ti
+  T_run = T_run + Ti
+  
+  n <- n + 1
+  
+  res <- rbind(res, 
+               data.frame(I. = n, 
+                          U. = unif, 
+                          T. = Ti, 
+                          S. = T_run))
+  
+  #cat("T: ", n, "Uniform number:", runif(1), "   Exponential:", Ti, "   Cumulative Sum: ", T_run ,"\n")
+}
+
+cat("Total individuals infected (N(12)):", n - 1, "\n")
+head(res, 10) %>% 
+  kable(booktabs = T, 
+        col.names = c('Index', 'Uniform Number', 'Exponential Number', 'S_i'), 
+        align = 'c')
+```
+
+
+# B 
+
+Using $Exp(2)$ we model additional ime to infection. I modify the data frame I presented earlier. First 10 observations of 
+time to infection and 
+
+```{r}
+
+N = nrow(res)
+
+set.seed(890171)
+
+inc_unif = runif(n = N, min = 0, max = 1)
+
+res$unif.for.Y = inc_unif
+
+res$Y. <- 
+  sapply(inc_unif, 
+         function(x) generate_exponentials(unif = x, n = 1, rate = 2)
+         )
+
+
+head(res, 10) %>% 
+  kable(booktabs = T, 
+        col.names = c('Index', 'Uniform Number', 'Exponential Number', 'S_i', "Uniform Number for Y_i", "Y_i"), 
+        align = 'c')
+```
+
+# C 
+
+Further, we apply desired data wrangling to the data set from part $B$. 10 observations from the data set after modifications are 
+below. $N.$ is the $t$ for $N(t)$ process, while $N.1$ is the $t$ for $N_1(t)$ process. For people indexed 4 and 6, symptoms occur 
+at time period 2, while infection sets in time period 1: 
+
+
+```{r}
+
+res$S.plus.Y. <- with(res, S. + Y.)
+
+res <- res %>% arrange(S.plus.Y.)  %>% 
+  mutate(N. = ceiling(S.), 
+         N.1 = ceiling(S.plus.Y. )
+         )
+
+l <- res %>% length()
+
+head(res, 10) %>% 
+  kable(booktabs = T, 
+        digits = 4, 
+        col.names = c('Index', 'Uniform Number', 'Exponential Number', 'S_i', "Uniform Number for Y_i", "Y_i", "S_i + Y_i", 
+                      "N(t)", "N_1 (t)"), 
+        align = 'c') %>% 
+  column_spec(1:l, width = "1.5cm") %>% 
+  kable_styling(font_size = 9, latex_options = "hold_position")
+
+```
+
+# D 
+
+One final replication of the counting process is given below. At every time point the number of infected people with symptoms is 
+less than or equal to the number of people with an infection. 
+
+```{r}
+two_process = 
+  inner_join(
+    x = res %>% 
+      group_by(N.) %>% 
+      summarise(Count.N. = n()) %>% 
+      mutate(Cum.Count.N = cumsum(Count.N.)) %>% 
+      select(N., Cum.Count.N) %>% 
+      rename(Time = N.), 
+    
+    y = res %>% 
+      group_by(N.1) %>% 
+      summarise(Count.N.1 = n()) %>% 
+      mutate(Cum.Count.N.1 = cumsum(Count.N.1)) %>% 
+      select(N.1, Cum.Count.N.1) %>% 
+      rename(Time = N.1), 
+    
+    by = "Time"
+  ) %>% 
+  pivot_longer(
+    cols = c("Cum.Count.N", "Cum.Count.N.1"), 
+    names_to = "type", 
+    values_to = "count"
+  ) %>% 
+  mutate(
+    type_nice = case_when(type == "Cum.Count.N" ~ "N(t)", 
+                          T ~ "N_1 (t)")
+  )
+
+
+ggplot(data = two_process, 
+       aes(x = Time, y = count, group = type_nice, color = type_nice)) + 
+  geom_point() + 
+  geom_step() + 
+  theme_minimal() + 
+  scale_x_continuous(breaks = seq(from = min(two_process$Time), 
+                                  to = max(two_process$Time), 
+                                  length.out = 6),  
+                     labels = function(x) round(x)) + 
+  labs(x = "Time Index", 
+       y = "Count", 
+       color = "Counting Process")
+```
+
+\newpage 
+
+# Appendix 
+
+Simulation of 100 Poisson processes and averaging over them for average trend. 
+
+```{r}
+one_process <- function(time = 24, lambda = 5, i ){
+  
+  # 
+  res <- data.frame(I. = integer(), 
+                    U. = numeric(), 
+                    T. = numeric(), 
+                    S. = numeric()
+                    )
+  time_sum = 0
+  T_run = 0
+  n = 0
+  while (time_sum <= time) {
+    unif = runif(1)
+    Ti <- generate_exponentials(unif = unif,1, lambda)
+    time_sum <- time_sum + Ti
+    T_run = T_run + Ti
+    
+    n <- n + 1
+    
+    res <- rbind(res, 
+                 data.frame(I. = n, 
+                            U. = unif, 
+                            T. = Ti, 
+                            S. = T_run))
+    
+    #cat("T: ", n, "Uniform number:", runif(1), "   Exponential:", Ti, "   Cumulative Sum: ", T_run ,"\n")
+  }
+  res <- res %>% arrange(S.)  %>% 
+    mutate(N. = ceiling(S.))
+    
+  f_ = res %>% group_by(N.) %>% summarise(count = n()) %>% 
+    mutate(cum.c = cumsum(count)) %>% mutate(id = i)
+  return(f_)
+}
+
+poisson_sim_results <- lapply(1:100, function(i) one_process(i = i))
+
+poisson_sim_results_rollup = poisson_sim_results %>% bind_rows()
+
+ggplot(data = poisson_sim_results_rollup, 
+       aes(x = N., y = cum.c, group = id)) + 
+  geom_smooth(aes(group = 1))
+
+```
